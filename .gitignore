@@ -1,0 +1,10 @@
+config.ini
+
+# Python bytecode and caches
+__pycache__/
+*.py[cod]
+
+# Local Python virtual environments
+.venv/
+venv/
+env/
