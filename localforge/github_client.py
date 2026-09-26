@@ -1,69 +1,85 @@
-from ghapi.all import GhApi
-import logging
-from typing import Optional, List
+"""Asynchronous GitHub issue operations for LocalForge."""
 
-# Configure logger
+from __future__ import annotations
+
+import logging
+from typing import Any, Literal
+
+from ghapi.core import GhApi
+from ghapi.page import paged
+
 logger = logging.getLogger(__name__)
 
+
 class GitHubClient:
+    """Small async wrapper around the GitHub operations LocalForge uses in V1."""
+
     def __init__(self, token: str):
         self._github = GhApi(token=token)
-    
-    def get_issues(self, owner: str, repo: str, label: str) -> List:
-        """Get issues with a specific label."""
+
+    async def get_issues(self, owner: str, repo: str, label: str) -> list[Any]:
+        """Return all open issues bearing ``label``, excluding pull requests."""
         try:
-            issues = self._github.issues.list(owner=owner, repo=repo, state='open', labels=[label])
+            issues: list[Any] = []
+            pages = paged(
+                self._github.issues.list_for_repo,
+                owner=owner,
+                repo=repo,
+                state="open",
+                labels=label,
+                per_page=100,
+            )
+            async for page in pages:
+                issues.extend(issue for issue in page if "pull_request" not in issue)
             return issues
-        except Exception as e:
-            logger.error(f'Error fetching issues: {e}')
+        except Exception:
+            logger.exception("Error fetching issues for %s/%s", owner, repo)
             raise
-    
-    def update_issue_state(self, owner: str, repo: str, issue_number: int, state: str) -> bool:
-        """Update an issue's state."""
+
+    async def update_issue_state(
+        self,
+        owner: str,
+        repo: str,
+        issue_number: int,
+        state: Literal["open", "closed"],
+    ) -> bool:
+        """Set an issue's GitHub state and return whether the update succeeded."""
         try:
-            self._github.issues.update(owner=owner, repo=repo, issue_number=issue_number, state=state)
-            return True
-        except Exception as e:
-            logger.error(f'Error updating issue {issue_number}: {e}')
-            raise
-    
-    def create_branch(self, owner: str, repo: str, branch_name: str, base_commit: str) -> bool:
-        """Create a new branch in the repository."""
-        try:
-            # Get the repository
-            repo_info = self._github.repos.get(owner=owner, repo=repo)
-            
-            # Create branch from base commit
-            self._github.branches.create(
+            await self._github.issues.update(
                 owner=owner,
                 repo=repo,
-                data={
-                    'ref': f'refs/heads/{branch_name}',
-                    'sha': base_commit
-                }
+                issue_number=issue_number,
+                state=state,
             )
             return True
-        except Exception as e:
-            logger.error(f'Error creating branch {branch_name}: {e}')
+        except Exception:
+            logger.exception("Error updating issue %s", issue_number)
             raise
-    
-    def create_pull_request(self, owner: str, repo: str, title: str, body: str, head_branch: str, base_branch: str) -> dict:
-        """Create a pull request."""
+
+    async def move_issue_to_label(
+        self,
+        owner: str,
+        repo: str,
+        issue_number: int,
+        source_label: str,
+        target_label: str,
+    ) -> None:
+        """Replace ``source_label`` with ``target_label`` without losing other labels."""
         try:
-            pr = self._github.pulls.create(
+            issue = await self._github.issues.get(
                 owner=owner,
                 repo=repo,
-                data={
-                    'title': title,
-                    'body': body,
-                    'head': head_branch,
-                    'base': base_branch
-                }
+                issue_number=issue_number,
             )
-            return {
-                'number': pr.number,
-                'url': pr.html_url
-            }
-        except Exception as e:
-            logger.error(f'Error creating pull request: {e}')
+            labels = [label.name for label in issue.labels if label.name != source_label]
+            if target_label not in labels:
+                labels.append(target_label)
+            await self._github.issues.set_labels(
+                owner=owner,
+                repo=repo,
+                issue_number=issue_number,
+                labels=labels,
+            )
+        except Exception:
+            logger.exception("Error moving issue %s to label %s", issue_number, target_label)
             raise
