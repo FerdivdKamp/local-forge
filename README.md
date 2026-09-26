@@ -291,6 +291,37 @@ Implementation has completed and is ready for human review.
 
 ---
 
+# V1 decisions while developing
+
+## GitHub PAT
+### V1 requirements
+*PAT Permissions*
+Metadata       Read-only
+Issues         Read and write
+Contents       Read-only
+Pull requests  Read-only 
+
+### V1 actual permissions
+*PAT Permissions*
+Metadata       Read-only
+Issues         Read and write
+Contents       Read and write
+Pull requests  Read and write
+*basically because I don't want to tweak the settings too often for a hobby project (and years of GCP experience with poorly orchestrated permission schemes has wasted loads of time in that)*
+
+## GitHub Api client
+
+I've looked at https://docs.github.com/en/rest/using-the-rest-api/libraries-for-the-rest-api?apiVersion=2026-03-10#python
+
+Chosen: ghapi  https://github.com/AnswerDotAI/ghapi
+
+Reason: I'm familiar with FastAi project, like their documentation set up nd undertandable way of writing. Explicitly mentioning async, OpenAPI spec and the always up to date blurb sounds like I will not need to refactor the entire thing in three months time.
+
+
+
+### 
+
+
 # Roadmap
 
 ## V1 — Local prototype
@@ -299,8 +330,9 @@ Goal: prove that a GitHub issue can reliably trigger local coding work.
 
 ### TODO
 
-- [ ] Create Python project structure
-- [ ] Add configuration loader
+- [x] Create Python project structure
+- [x] Add configuration loader
+- [x] Create GitHub PAT token
 - [ ] Read GitHub token from environment
 - [ ] Connect to GitHub API
 - [ ] Retrieve open issues
