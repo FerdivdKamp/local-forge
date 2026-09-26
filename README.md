@@ -333,12 +333,12 @@ Goal: prove that a GitHub issue can reliably trigger local coding work.
 - [x] Create Python project structure
 - [x] Add configuration loader
 - [x] Create GitHub PAT token
-- [ ] Read GitHub token from environment
-- [ ] Connect to GitHub API
-- [ ] Retrieve open issues
-- [ ] Filter issues using the `ai-ready` label
+- [x] Read GitHub token from environment
+- [x] Connect to GitHub API
+- [x] Retrieve open issues
+- [x] Filter issues using the `ai-ready` label
 - [ ] Prevent the same issue from being processed more than once
-- [ ] Add `ai-working` state
+- [x] Add `ai-working` state
 - [ ] Clone or update target repository
 - [ ] Create isolated workspace per issue
 - [ ] Create branch such as `ai/123-short-description`
