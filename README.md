@@ -15,6 +15,69 @@ The long-term goal is to use GitHub as the product-owner interface while local c
 
 ---
 
+## Run LocalForge
+
+Run commands from the LocalForge repository root. Install the project's Python
+dependencies once:
+
+```powershell
+poetry install
+```
+
+Create a local `config.ini` from `config.example.ini` and configure at least the
+GitHub token, owner, repository, labels, and workspace root. Keep `config.ini`
+local; it contains credentials. For a workspace directory beside this repository:
+
+```ini
+workspace_root = ../workspaces
+```
+
+First use a dry run to list one eligible issue without changing GitHub or the
+local filesystem:
+
+```powershell
+poetry run python -m localforge.main
+```
+
+To process the first `ai-ready` issue, move it to `ai-working`, and prepare its
+local Git worktree, run:
+
+```powershell
+poetry run python -m localforge.main --apply
+```
+
+The worktree is created under `WORKSPACE_ROOT/issues/<issue-number>-<slug>` and
+its branch is named `ai/<issue-number>-<slug>`. V1 currently stops after
+preparing the workspace; Codex subprocess execution is the next implementation
+step.
+
+### Run unit tests
+
+Run the full test suite with:
+
+```powershell
+poetry run python -m unittest discover -s tests -v
+```
+
+Run only the Codex prompt and command-construction tests with:
+
+```powershell
+poetry run python -m unittest tests.test_codex_runner -v
+```
+
+Stop the suite at its first failing test with `-f`:
+
+```powershell
+poetry run python -m unittest discover -s tests -v -f
+```
+
+`unittest` does not automatically open a debugger for an assertion failure. To
+inspect one interactively, add a temporary `breakpoint()` at the relevant test
+or code location, then rerun the test command. Python will open its built-in
+debugger at that point.
+
+---
+
 ## Architecture
 
 ```text
@@ -203,6 +266,8 @@ POLL_INTERVAL_SECONDS=30
 WORKSPACE_ROOT=../workspaces
 AI_READY_LABEL=ai-ready
 AI_WORKING_LABEL=ai-working
+CODEX_MODE=codex
+CODEX_MODEL=unsloth/qwen3-coder-30b-a3b-instruct
 ```
 
 Secrets must never be committed to the repository.
@@ -228,6 +293,20 @@ LocalForge secrets
 ```
 
 Codex should receive only the environment variables required to build and test the project.
+
+## Codex model selection
+
+`CODEX_MODE` controls the coding-agent command. Use `codex` for the standard
+Codex CLI, or `lm-studio` for a local model through LM Studio. The latter builds:
+
+```text
+codex --oss -m unsloth/qwen3-coder-30b-a3b-instruct
+```
+
+Set `CODEX_MODEL` to select a different local model. LM Studio must be running
+and configured before LocalForge starts that command. This setting applies only
+to the coding agent; a future model that plans or splits GitHub issues should
+have separate configuration.
 
 ---
 
@@ -342,7 +421,7 @@ Goal: prove that a GitHub issue can reliably trigger local coding work.
 - [x] Clone or update target repository
 - [x] Create isolated workspace per issue
 - [x] Create branch such as `ai/123-short-description`
-- [ ] Build Codex prompt from issue title and description
+- [x] Build Codex prompt from issue title and description
 - [ ] Start Codex as a subprocess
 - [ ] Use LM Studio as the Codex model provider
 - [ ] Sanitize environment passed to Codex
