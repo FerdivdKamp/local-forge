@@ -9,6 +9,7 @@ import sys
 
 from localforge.config import Settings, load_config
 from localforge.github_client import GitHubClient
+from localforge.workspace import WorkspaceManager
 
 logger = logging.getLogger(__name__)
 
@@ -48,7 +49,8 @@ async def run(apply: bool, limit: int) -> int:
     if limit < 1:
         raise ValueError("--limit must be at least 1")
 
-    token, owner, repo, ready_label, working_label = require_github_settings(load_config())
+    settings = load_config()
+    token, owner, repo, ready_label, working_label = require_github_settings(settings)
     client = GitHubClient(token)
     issues = (await client.get_issues(owner, repo, ready_label))[:limit]
 
@@ -67,6 +69,14 @@ async def run(apply: bool, limit: int) -> int:
                 working_label,
             )
             print(f"  moved from {ready_label!r} to {working_label!r}")
+            if not settings.workspace_root:
+                raise ValueError("Missing required configuration: WORKSPACE_ROOT")
+            workspace = WorkspaceManager(settings.workspace_root, owner, repo).prepare_issue(
+                issue.number,
+                issue.title,
+            )
+            print(f"  workspace: {workspace.path}")
+            print(f"  branch: {workspace.branch}")
         else:
             print("  dry run; pass --apply to update its label")
     return 0

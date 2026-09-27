@@ -200,7 +200,7 @@ GITHUB_TOKEN=...
 GITHUB_OWNER=...
 GITHUB_REPOSITORY=...
 POLL_INTERVAL_SECONDS=30
-WORKSPACE_ROOT=./workspaces
+WORKSPACE_ROOT=../workspaces
 AI_READY_LABEL=ai-ready
 AI_WORKING_LABEL=ai-working
 ```
@@ -337,11 +337,11 @@ Goal: prove that a GitHub issue can reliably trigger local coding work.
 - [x] Connect to GitHub API
 - [x] Retrieve open issues
 - [x] Filter issues using the `ai-ready` label
-- [ ] Prevent the same issue from being processed more than once
+- [x] Prevent the same issue from being processed more than once
 - [x] Add `ai-working` state
-- [ ] Clone or update target repository
-- [ ] Create isolated workspace per issue
-- [ ] Create branch such as `ai/123-short-description`
+- [x] Clone or update target repository
+- [x] Create isolated workspace per issue
+- [x] Create branch such as `ai/123-short-description`
 - [ ] Build Codex prompt from issue title and description
 - [ ] Start Codex as a subprocess
 - [ ] Use LM Studio as the Codex model provider
