@@ -133,6 +133,15 @@ async def run(apply: bool, limit: int) -> int:
             print(f"  run log: {log_path}")
             pull_request = None
             if result.exit_code == 0:
+                committed = workspace_manager.commit_issue_changes(
+                    workspace,
+                    issue.number,
+                    issue.title,
+                )
+                if committed:
+                    print("  committed Codex changes")
+            has_changes = result.exit_code == 0 and workspace_manager.has_issue_branch_changes(workspace)
+            if has_changes:
                 workspace_manager.push_issue_branch(workspace)
                 print(f"  pushed branch: {workspace.branch}")
                 pull_request = await client.create_pull_request(
@@ -143,11 +152,23 @@ async def run(apply: bool, limit: int) -> int:
                     workspace.branch,
                 )
                 print(f"  pull request: #{pull_request.number} ({pull_request.url})")
+            elif result.exit_code == 0:
+                print("  no commits beyond the default branch; no pull request created")
             target_label = (
                 settings.human_review_label
-                if result.exit_code == 0
+                if has_changes
                 else settings.ai_blocked_label
             )
+            comment = build_run_comment(
+                workspace.path,
+                workspace.branch,
+                result.exit_code,
+                result.duration_seconds,
+                log_path,
+                pull_request,
+            )
+            if result.exit_code == 0 and not has_changes:
+                comment += "\nNo commits were created beyond the default branch, so LocalForge did not publish a branch or open a pull request.\n"
             await client.move_issue_to_label(
                 owner,
                 repo,
@@ -159,14 +180,7 @@ async def run(apply: bool, limit: int) -> int:
                 owner,
                 repo,
                 issue.number,
-                build_run_comment(
-                    workspace.path,
-                    workspace.branch,
-                    result.exit_code,
-                    result.duration_seconds,
-                    log_path,
-                    pull_request,
-                ),
+                comment,
             )
             print(f"  moved from {working_label!r} to {target_label!r}")
             if result.exit_code != 0:

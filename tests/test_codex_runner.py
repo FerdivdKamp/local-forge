@@ -38,6 +38,8 @@ class IssuePromptTests(unittest.TestCase):
         self.assertIn("Issue title: Add a health endpoint", prompt)
         self.assertIn("Return the version too.", prompt)
         self.assertIn("Do not push branches", prompt)
+        self.assertIn("commit changes", prompt)
+        self.assertIn("LocalForge will commit and publish", prompt)
 
     def test_uses_a_clear_placeholder_for_an_empty_description(self) -> None:
         prompt = build_issue_prompt(42, "Add a health endpoint", None)

@@ -47,6 +47,8 @@ class MainRunTests(unittest.IsolatedAsyncioTestCase):
             patch("localforge.main.store_run_log", return_value=Path("workspaces/run-logs/issue-42.log")) as store_log,
         ):
             manager.return_value.prepare_issue.return_value = workspace
+            manager.return_value.commit_issue_changes.return_value = True
+            manager.return_value.has_issue_branch_changes.return_value = True
             exit_code = await run(apply=True, limit=1)
 
         self.assertEqual(exit_code, 0)
@@ -55,6 +57,7 @@ class MainRunTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(args[:3], (workspace.path, "codex", "model"))
         self.assertIn("GitHub issue #42", args[3])
         manager.return_value.push_issue_branch.assert_called_once_with(workspace)
+        manager.return_value.commit_issue_changes.assert_called_once_with(workspace, 42, "Fix the bug")
         client.create_pull_request.assert_awaited_once_with(
             "octo", "widget", 42, "Fix the bug", "ai/42-fix-the-bug"
         )
@@ -117,3 +120,40 @@ class MainRunTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("Codex failed", client.create_issue_comment.call_args.args[3])
         manager.return_value.push_issue_branch.assert_not_called()
         client.create_pull_request.assert_not_awaited()
+
+    async def test_successful_codex_run_without_commits_marks_the_issue_blocked(self) -> None:
+        settings = Settings(
+            github_token="token", github_owner="octo", github_repository="widget",
+            poll_interval_seconds=None, workspace_root="workspaces", ai_ready_label="ai-ready",
+            ai_working_label="ai-working", ai_blocked_label="ai-blocked",
+            human_review_label="human-review", codex_mode="codex", codex_model="model",
+        )
+        issue = SimpleNamespace(number=42, title="Fix the bug", body="Make it work.")
+        client = Mock()
+        client.get_issues = AsyncMock(return_value=[issue])
+        client.move_issue_to_label = AsyncMock()
+        client.create_issue_comment = AsyncMock()
+        workspace = SimpleNamespace(path=Path("workspaces/issues/42-fix-the-bug"), branch="ai/42-fix-the-bug")
+        result = CodexRunResult(("codex",), 0, "done", "", 1.0)
+
+        with (
+            patch("localforge.main.load_config", return_value=settings),
+            patch("localforge.main.GitHubClient", return_value=client),
+            patch("localforge.main.WorkspaceManager") as manager,
+            patch("localforge.main.run_codex", return_value=result),
+            patch("localforge.main.store_run_log", return_value=Path("workspaces/run-logs/issue-42.log")),
+        ):
+            manager.return_value.prepare_issue.return_value = workspace
+            manager.return_value.commit_issue_changes.return_value = False
+            manager.return_value.has_issue_branch_changes.return_value = False
+            exit_code = await run(apply=True, limit=1)
+
+        self.assertEqual(exit_code, 0)
+        manager.return_value.commit_issue_changes.assert_called_once_with(workspace, 42, "Fix the bug")
+        manager.return_value.push_issue_branch.assert_not_called()
+        client.create_pull_request.assert_not_called()
+        self.assertEqual(
+            client.move_issue_to_label.await_args_list[-1].args,
+            ("octo", "widget", 42, "ai-working", "ai-blocked"),
+        )
+        self.assertIn("No commits were created", client.create_issue_comment.call_args.args[3])

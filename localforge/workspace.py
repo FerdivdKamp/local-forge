@@ -80,6 +80,35 @@ class WorkspaceManager:
             cwd=workspace.path,
         )
 
+    def commit_issue_changes(
+        self,
+        workspace: IssueWorkspace,
+        issue_number: int,
+        issue_title: str,
+    ) -> bool:
+        """Commit all Codex changes, returning whether a commit was created."""
+        if not self._git("status", "--porcelain", cwd=workspace.path, capture_output=True):
+            return False
+        self._git("add", "--all", cwd=workspace.path)
+        self._git(
+            "commit",
+            "-m",
+            f"Implement issue #{issue_number}: {issue_title}",
+            cwd=workspace.path,
+        )
+        return True
+
+    def has_issue_branch_changes(self, workspace: IssueWorkspace) -> bool:
+        """Return whether the issue branch has commits beyond its base branch."""
+        commit_count = self._git(
+            "rev-list",
+            "--count",
+            "origin/HEAD..HEAD",
+            cwd=workspace.path,
+            capture_output=True,
+        )
+        return int(commit_count) > 0
+
     def _ensure_repository_cache(self) -> None:
         repository = self.repository_path
         if (repository / ".git").exists():

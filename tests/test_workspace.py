@@ -36,6 +36,53 @@ class WorkspaceManagerTests(unittest.TestCase):
             cwd=Path("workspaces/issues/123-add-health-endpoint"),
         )
 
+    def test_detects_commits_beyond_the_default_branch(self) -> None:
+        manager = WorkspaceManager(Path.cwd() / "workspaces", "octo", "widget")
+        workspace = IssueWorkspace(Path("workspaces/issues/123-add-health-endpoint"), "ai/123-add-health-endpoint")
+
+        with patch.object(manager, "_git", return_value="1") as git:
+            self.assertTrue(manager.has_issue_branch_changes(workspace))
+
+        git.assert_called_once_with(
+            "rev-list",
+            "--count",
+            "origin/HEAD..HEAD",
+            cwd=workspace.path,
+            capture_output=True,
+        )
+
+    def test_commits_all_codex_changes(self) -> None:
+        manager = WorkspaceManager(Path.cwd() / "workspaces", "octo", "widget")
+        workspace = IssueWorkspace(Path("workspaces/issues/123-add-health-endpoint"), "ai/123-add-health-endpoint")
+
+        with patch.object(manager, "_git", side_effect=(" M app.py", "", "")) as git:
+            self.assertTrue(manager.commit_issue_changes(workspace, 123, "Add health endpoint"))
+
+        self.assertEqual(
+            git.call_args_list,
+            [
+                call("status", "--porcelain", cwd=workspace.path, capture_output=True),
+                call("add", "--all", cwd=workspace.path),
+                call("commit", "-m", "Implement issue #123: Add health endpoint", cwd=workspace.path),
+            ],
+        )
+
+    def test_does_not_commit_a_clean_worktree(self) -> None:
+        manager = WorkspaceManager(Path.cwd() / "workspaces", "octo", "widget")
+        workspace = IssueWorkspace(Path("workspaces/issues/123-add-health-endpoint"), "ai/123-add-health-endpoint")
+
+        with patch.object(manager, "_git", return_value="") as git:
+            self.assertFalse(manager.commit_issue_changes(workspace, 123, "Add health endpoint"))
+
+        git.assert_called_once_with("status", "--porcelain", cwd=workspace.path, capture_output=True)
+
+    def test_detects_a_branch_with_no_new_commits(self) -> None:
+        manager = WorkspaceManager(Path.cwd() / "workspaces", "octo", "widget")
+        workspace = IssueWorkspace(Path("workspaces/issues/123-add-health-endpoint"), "ai/123-add-health-endpoint")
+
+        with patch.object(manager, "_git", return_value="0"):
+            self.assertFalse(manager.has_issue_branch_changes(workspace))
+
     def test_creates_cache_then_issue_worktree(self) -> None:
         root = Path.cwd() / "workspaces"
         manager = WorkspaceManager(root, "octo", "widget")
