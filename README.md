@@ -26,11 +26,17 @@ poetry install
 
 Create a local `config.ini` from `config.example.ini` and configure at least the
 GitHub token, owner, repository, labels, and workspace root. Keep `config.ini`
-local; it contains credentials. For a workspace directory beside this repository:
+local; it contains credentials. Environment variables override the corresponding
+`config.ini` values; `.env.example` lists those variables but is not loaded
+automatically. For a workspace directory beside this repository:
 
 ```ini
 workspace_root = ../workspaces
 ```
+
+Install Git, the Codex CLI, and (when using `CODEX_MODE=lm-studio`) start and
+configure LM Studio before applying an issue. The configured GitHub token is
+used only by LocalForge and is removed from Codex's environment.
 
 First use a dry run to list one eligible issue without changing GitHub or the
 local filesystem:
@@ -64,6 +70,8 @@ git -C WORKSPACE_ROOT/issues/<issue-number>-<slug> diff origin/HEAD
 
 The GitHub comment also records the exit status and run duration. It does not
 publish Codex's full output, which may contain local project details.
+LocalForge saves that output in a timestamped file under
+`WORKSPACE_ROOT/run-logs/` for local diagnosis.
 
 ### Run unit tests
 
@@ -445,13 +453,13 @@ Goal: prove that a GitHub issue can reliably trigger local coding work.
 - [x] Capture Codex stdout/stderr
 - [x] Capture Codex exit status
 - [x] Record execution duration
-- [ ] Store basic run logs
+- [x] Store basic run logs
 - [x] Handle failed Codex runs
 - [x] Mark failed issues as `ai-blocked`
 - [x] Add unit tests for orchestration logic
-- [ ] Add `.env.example`
-- [ ] Add `.gitignore`
-- [ ] Document local setup
+- [x] Add `.env.example`
+- [x] Add `.gitignore`
+- [x] Document local setup
 
 ### V1 safety boundary
 

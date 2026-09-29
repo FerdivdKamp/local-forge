@@ -40,6 +40,7 @@ class MainRunTests(unittest.IsolatedAsyncioTestCase):
             patch("localforge.main.GitHubClient", return_value=client),
             patch("localforge.main.WorkspaceManager") as manager,
             patch("localforge.main.run_codex", return_value=result) as run_codex,
+            patch("localforge.main.store_run_log", return_value=Path("workspaces/run-logs/issue-42.log")) as store_log,
         ):
             manager.return_value.prepare_issue.return_value = workspace
             exit_code = await run(apply=True, limit=1)
@@ -49,6 +50,13 @@ class MainRunTests(unittest.IsolatedAsyncioTestCase):
         args = run_codex.call_args.args
         self.assertEqual(args[:3], (workspace.path, "codex", "model"))
         self.assertIn("GitHub issue #42", args[3])
+        store_log.assert_called_once_with(
+            Path("workspaces") / "run-logs",
+            42,
+            workspace.path,
+            workspace.branch,
+            result,
+        )
         client.move_issue_to_label.assert_has_awaits(
             [
                 unittest.mock.call("octo", "widget", 42, "ai-ready", "ai-working"),
@@ -85,6 +93,7 @@ class MainRunTests(unittest.IsolatedAsyncioTestCase):
             patch("localforge.main.GitHubClient", return_value=client),
             patch("localforge.main.WorkspaceManager") as manager,
             patch("localforge.main.run_codex", return_value=result),
+            patch("localforge.main.store_run_log", return_value=Path("workspaces/run-logs/issue-42.log")),
         ):
             manager.return_value.prepare_issue.return_value = workspace
             exit_code = await run(apply=True, limit=1)

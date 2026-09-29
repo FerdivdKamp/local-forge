@@ -6,10 +6,12 @@ import argparse
 import asyncio
 import logging
 import sys
+from pathlib import Path
 
 from localforge.config import Settings, load_config
 from localforge.codex_runner import build_issue_prompt, run_codex
 from localforge.github_client import GitHubClient
+from localforge.run_log import store_run_log
 from localforge.workspace import WorkspaceManager
 
 logger = logging.getLogger(__name__)
@@ -50,6 +52,7 @@ def build_run_comment(
     branch: str,
     exit_code: int,
     duration_seconds: float,
+    log_path: object,
 ) -> str:
     """Describe where a completed local run can be reviewed without publishing code."""
     status = "completed successfully" if exit_code == 0 else "failed"
@@ -58,6 +61,7 @@ def build_run_comment(
         f"Codex {status} (exit status: {exit_code}; duration: {duration_seconds:.1f}s).\n\n"
         f"Local branch: `{branch}` (not pushed)\n"
         f"Review worktree: `{workspace_path}`\n"
+        f"Local run log: `{log_path}`\n"
     )
 
 
@@ -109,6 +113,14 @@ async def run(apply: bool, limit: int) -> int:
             if result.stderr:
                 print("  Codex stderr:", file=sys.stderr)
                 print(result.stderr, file=sys.stderr)
+            log_path = store_run_log(
+                Path(settings.workspace_root) / "run-logs",
+                issue.number,
+                workspace.path,
+                workspace.branch,
+                result,
+            )
+            print(f"  run log: {log_path}")
             target_label = (
                 settings.human_review_label
                 if result.exit_code == 0
@@ -130,6 +142,7 @@ async def run(apply: bool, limit: int) -> int:
                     workspace.branch,
                     result.exit_code,
                     result.duration_seconds,
+                    log_path,
                 ),
             )
             print(f"  moved from {working_label!r} to {target_label!r}")
