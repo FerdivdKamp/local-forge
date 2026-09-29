@@ -6,7 +6,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import call, patch
 
-from localforge.workspace import WorkspaceError, WorkspaceManager, issue_slug
+from localforge.workspace import IssueWorkspace, WorkspaceError, WorkspaceManager, issue_slug
 
 
 class IssueSlugTests(unittest.TestCase):
@@ -18,6 +18,24 @@ class IssueSlugTests(unittest.TestCase):
 
 
 class WorkspaceManagerTests(unittest.TestCase):
+    def test_pushes_the_issue_branch_to_origin(self) -> None:
+        manager = WorkspaceManager(Path.cwd() / "workspaces", "octo", "widget")
+        workspace = IssueWorkspace(
+            Path("workspaces/issues/123-add-health-endpoint"),
+            "ai/123-add-health-endpoint",
+        )
+
+        with patch.object(manager, "_git") as git:
+            manager.push_issue_branch(workspace)
+
+        git.assert_called_once_with(
+            "push",
+            "--set-upstream",
+            "origin",
+            "ai/123-add-health-endpoint",
+            cwd=Path("workspaces/issues/123-add-health-endpoint"),
+        )
+
     def test_creates_cache_then_issue_worktree(self) -> None:
         root = Path.cwd() / "workspaces"
         manager = WorkspaceManager(root, "octo", "widget")

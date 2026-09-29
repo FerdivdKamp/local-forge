@@ -9,6 +9,7 @@ from unittest.mock import AsyncMock, Mock, patch
 
 from localforge.codex_runner import CodexRunResult
 from localforge.config import Settings
+from localforge.github_client import PullRequest
 from localforge.main import run
 
 
@@ -32,6 +33,9 @@ class MainRunTests(unittest.IsolatedAsyncioTestCase):
         client.get_issues = AsyncMock(return_value=[issue])
         client.move_issue_to_label = AsyncMock()
         client.create_issue_comment = AsyncMock()
+        client.create_pull_request = AsyncMock(
+            return_value=PullRequest(7, "https://github.com/octo/widget/pull/7")
+        )
         workspace = SimpleNamespace(path=Path("workspaces/issues/42-fix-the-bug"), branch="ai/42-fix-the-bug")
         result = CodexRunResult(("codex",), 0, "done", "", 1.0)
 
@@ -50,6 +54,10 @@ class MainRunTests(unittest.IsolatedAsyncioTestCase):
         args = run_codex.call_args.args
         self.assertEqual(args[:3], (workspace.path, "codex", "model"))
         self.assertIn("GitHub issue #42", args[3])
+        manager.return_value.push_issue_branch.assert_called_once_with(workspace)
+        client.create_pull_request.assert_awaited_once_with(
+            "octo", "widget", 42, "Fix the bug", "ai/42-fix-the-bug"
+        )
         store_log.assert_called_once_with(
             Path("workspaces") / "run-logs",
             42,
@@ -64,7 +72,9 @@ class MainRunTests(unittest.IsolatedAsyncioTestCase):
             ]
         )
         client.create_issue_comment.assert_awaited_once()
-        self.assertIn("Local branch: `ai/42-fix-the-bug`", client.create_issue_comment.call_args.args[3])
+        comment = client.create_issue_comment.call_args.args[3]
+        self.assertIn("Published branch: `ai/42-fix-the-bug`", comment)
+        self.assertIn("Pull request: [#7](https://github.com/octo/widget/pull/7)", comment)
 
     async def test_failed_codex_run_marks_the_issue_blocked(self) -> None:
         settings = Settings(
@@ -85,6 +95,7 @@ class MainRunTests(unittest.IsolatedAsyncioTestCase):
         client.get_issues = AsyncMock(return_value=[issue])
         client.move_issue_to_label = AsyncMock()
         client.create_issue_comment = AsyncMock()
+        client.create_pull_request = AsyncMock()
         workspace = SimpleNamespace(path=Path("workspaces/issues/42-fix-the-bug"), branch="ai/42-fix-the-bug")
         result = CodexRunResult(("codex",), 1, "", "failed", 1.0)
 
@@ -104,3 +115,5 @@ class MainRunTests(unittest.IsolatedAsyncioTestCase):
             ("octo", "widget", 42, "ai-working", "ai-blocked"),
         )
         self.assertIn("Codex failed", client.create_issue_comment.call_args.args[3])
+        manager.return_value.push_issue_branch.assert_not_called()
+        client.create_pull_request.assert_not_awaited()

@@ -70,6 +70,16 @@ class WorkspaceManager:
         )
         return workspace
 
+    def push_issue_branch(self, workspace: IssueWorkspace) -> None:
+        """Publish an issue branch after Codex has completed successfully."""
+        self._git(
+            "push",
+            "--set-upstream",
+            "origin",
+            workspace.branch,
+            cwd=workspace.path,
+        )
+
     def _ensure_repository_cache(self) -> None:
         repository = self.repository_path
         if (repository / ".git").exists():

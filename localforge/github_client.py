@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from dataclasses import dataclass
 from typing import Any, Literal
 
 from ghapi.core import GhApi
@@ -11,8 +12,16 @@ from ghapi.page import paged
 logger = logging.getLogger(__name__)
 
 
+@dataclass(frozen=True)
+class PullRequest:
+    """The identifiers needed to find a LocalForge-created pull request."""
+
+    number: int
+    url: str
+
+
 class GitHubClient:
-    """Small async wrapper around the GitHub operations LocalForge uses in V1."""
+    """Small async wrapper around the GitHub operations LocalForge uses."""
 
     def __init__(self, token: str):
         self._github = GhApi(token=token)
@@ -101,4 +110,31 @@ class GitHubClient:
             )
         except Exception:
             logger.exception("Error adding a comment to issue %s", issue_number)
+            raise
+
+    async def create_pull_request(
+        self,
+        owner: str,
+        repo: str,
+        issue_number: int,
+        title: str,
+        branch: str,
+    ) -> PullRequest:
+        """Open a PR from ``branch`` and link it to its originating issue."""
+        try:
+            repository = await self._github.repos.get(owner=owner, repo=repo)
+            pull_request = await self._github.pulls.create(
+                owner=owner,
+                repo=repo,
+                title=title,
+                head=branch,
+                base=repository.default_branch,
+                body=(
+                    f"Closes #{issue_number}\n\n"
+                    "Created by LocalForge from the issue worktree."
+                ),
+            )
+            return PullRequest(number=pull_request.number, url=pull_request.html_url)
+        except Exception:
+            logger.exception("Error creating pull request for issue %s", issue_number)
             raise
