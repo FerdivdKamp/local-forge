@@ -83,3 +83,22 @@ class GitHubClient:
         except Exception:
             logger.exception("Error moving issue %s to label %s", issue_number, target_label)
             raise
+
+    async def create_issue_comment(
+        self,
+        owner: str,
+        repo: str,
+        issue_number: int,
+        body: str,
+    ) -> None:
+        """Add a concise LocalForge run-status comment to an issue."""
+        try:
+            await self._github.issues.create_comment(
+                owner=owner,
+                repo=repo,
+                issue_number=issue_number,
+                body=body,
+            )
+        except Exception:
+            logger.exception("Error adding a comment to issue %s", issue_number)
+            raise

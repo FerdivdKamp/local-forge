@@ -8,6 +8,7 @@ import logging
 import sys
 
 from localforge.config import Settings, load_config
+from localforge.codex_runner import build_issue_prompt, run_codex
 from localforge.github_client import GitHubClient
 from localforge.workspace import WorkspaceManager
 
@@ -44,6 +45,22 @@ def require_github_settings(settings: Settings) -> tuple[str, str, str, str, str
     return tuple(values.values())  # type: ignore[return-value]
 
 
+def build_run_comment(
+    workspace_path: object,
+    branch: str,
+    exit_code: int,
+    duration_seconds: float,
+) -> str:
+    """Describe where a completed local run can be reviewed without publishing code."""
+    status = "completed successfully" if exit_code == 0 else "failed"
+    return (
+        "## LocalForge run\n\n"
+        f"Codex {status} (exit status: {exit_code}; duration: {duration_seconds:.1f}s).\n\n"
+        f"Local branch: `{branch}` (not pushed)\n"
+        f"Review worktree: `{workspace_path}`\n"
+    )
+
+
 async def run(apply: bool, limit: int) -> int:
     """List eligible issues and optionally move them from ready to working."""
     if limit < 1:
@@ -77,6 +94,47 @@ async def run(apply: bool, limit: int) -> int:
             )
             print(f"  workspace: {workspace.path}")
             print(f"  branch: {workspace.branch}")
+            prompt = build_issue_prompt(issue.number, issue.title, getattr(issue, "body", None))
+            result = run_codex(
+                workspace.path,
+                settings.codex_mode,
+                settings.codex_model,
+                prompt,
+            )
+            print(f"  Codex exit status: {result.exit_code}")
+            print(f"  Codex duration: {result.duration_seconds:.1f}s")
+            if result.stdout:
+                print("  Codex stdout:")
+                print(result.stdout)
+            if result.stderr:
+                print("  Codex stderr:", file=sys.stderr)
+                print(result.stderr, file=sys.stderr)
+            target_label = (
+                settings.human_review_label
+                if result.exit_code == 0
+                else settings.ai_blocked_label
+            )
+            await client.move_issue_to_label(
+                owner,
+                repo,
+                issue.number,
+                working_label,
+                target_label,
+            )
+            await client.create_issue_comment(
+                owner,
+                repo,
+                issue.number,
+                build_run_comment(
+                    workspace.path,
+                    workspace.branch,
+                    result.exit_code,
+                    result.duration_seconds,
+                ),
+            )
+            print(f"  moved from {working_label!r} to {target_label!r}")
+            if result.exit_code != 0:
+                return result.exit_code
         else:
             print("  dry run; pass --apply to update its label")
     return 0

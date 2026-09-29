@@ -2,10 +2,41 @@
 
 from __future__ import annotations
 
+import os
+import subprocess
+import time
+from dataclasses import dataclass
+from pathlib import Path
 from textwrap import dedent
 
 
 DEFAULT_OSS_MODEL = "unsloth/qwen3-coder-30b-a3b-instruct"
+_SAFE_ENVIRONMENT_VARIABLES = frozenset(
+    {
+        "APPDATA",
+        "COMSPEC",
+        "HOME",
+        "LOCALAPPDATA",
+        "PATH",
+        "PATHEXT",
+        "SYSTEMROOT",
+        "TEMP",
+        "TMP",
+        "USERPROFILE",
+        "WINDIR",
+    }
+)
+
+
+@dataclass(frozen=True)
+class CodexRunResult:
+    """The captured outcome of one non-interactive Codex invocation."""
+
+    command: tuple[str, ...]
+    exit_code: int
+    stdout: str
+    stderr: str
+    duration_seconds: float
 
 
 def build_codex_command(mode: str, model: str = DEFAULT_OSS_MODEL) -> tuple[str, ...]:
@@ -49,3 +80,51 @@ def build_issue_prompt(issue_number: int, title: str, body: str | None) -> str:
         tests run with their result.
         """
     ).strip()
+
+
+def sanitized_environment(source: dict[str, str] | None = None) -> dict[str, str]:
+    """Return only the operating-system variables Codex needs to run locally."""
+    environment = source if source is not None else os.environ
+    return {
+        name: value
+        for name, value in environment.items()
+        if name.upper() in _SAFE_ENVIRONMENT_VARIABLES
+    }
+
+
+def run_codex(
+    workspace: Path | str,
+    mode: str,
+    model: str,
+    prompt: str,
+) -> CodexRunResult:
+    """Run Codex non-interactively in an issue worktree and capture its result."""
+    command = (*build_codex_command(mode, model), "exec", "--approve-for-me", "--color", "never", prompt)
+    started = time.monotonic()
+    try:
+        completed = subprocess.run(
+            command,
+            cwd=workspace,
+            env=sanitized_environment(),
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            capture_output=True,
+            check=False,
+        )
+    except OSError as error:
+        return CodexRunResult(
+            command=command,
+            exit_code=127,
+            stdout="",
+            stderr=str(error),
+            duration_seconds=time.monotonic() - started,
+        )
+
+    return CodexRunResult(
+        command=command,
+        exit_code=completed.returncode,
+        stdout=completed.stdout,
+        stderr=completed.stderr,
+        duration_seconds=time.monotonic() - started,
+    )

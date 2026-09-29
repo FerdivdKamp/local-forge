@@ -47,9 +47,23 @@ poetry run python -m localforge.main --apply
 ```
 
 The worktree is created under `WORKSPACE_ROOT/issues/<issue-number>-<slug>` and
-its branch is named `ai/<issue-number>-<slug>`. V1 currently stops after
-preparing the workspace; Codex subprocess execution is the next implementation
-step.
+its branch is named `ai/<issue-number>-<slug>`. LocalForge then runs Codex
+non-interactively in that worktree. When it finishes, LocalForge updates the
+issue label and adds a GitHub comment with the local branch and worktree path.
+
+### Review a completed run
+
+V1 does not push code, so the branch is available only on the machine running
+LocalForge. When an issue is labelled `human-review`, open the worktree path
+from the GitHub comment in your IDE, or inspect it from PowerShell:
+
+```powershell
+git -C WORKSPACE_ROOT/issues/<issue-number>-<slug> status
+git -C WORKSPACE_ROOT/issues/<issue-number>-<slug> diff origin/HEAD
+```
+
+The GitHub comment also records the exit status and run duration. It does not
+publish Codex's full output, which may contain local project details.
 
 ### Run unit tests
 
@@ -149,7 +163,7 @@ Codex implements issue
 Codex runs relevant tests
    │
    ▼
-LocalForge records result
+LocalForge records result, updates its label, and comments on the issue
 ```
 
 Initially, LocalForge will **not automatically push changes or create pull requests**.
@@ -266,6 +280,8 @@ POLL_INTERVAL_SECONDS=30
 WORKSPACE_ROOT=../workspaces
 AI_READY_LABEL=ai-ready
 AI_WORKING_LABEL=ai-working
+AI_BLOCKED_LABEL=ai-blocked
+HUMAN_REVIEW_LABEL=human-review
 CODEX_MODE=codex
 CODEX_MODEL=unsloth/qwen3-coder-30b-a3b-instruct
 ```
@@ -280,7 +296,7 @@ The GitHub token should initially be a fine-grained Personal Access Token scoped
 
 Codex should operate only inside the checked-out project workspace.
 
-LocalForge should launch Codex with a sanitized environment.
+LocalForge launches Codex with a sanitized environment.
 
 For example, the Codex process should not inherit:
 
@@ -341,7 +357,7 @@ means that LocalForge may process the issue.
 
 # Status labels
 
-Planned initial labels:
+Create these labels in the target GitHub repository:
 
 ```text
 ai-ready
@@ -366,7 +382,8 @@ The agent could not complete the task successfully or requires human input.
 
 ### `human-review`
 
-Implementation has completed and is ready for human review.
+Codex completed successfully. The issue comment tells the reviewer where to
+find the unpushed local worktree and branch.
 
 ---
 
@@ -422,16 +439,16 @@ Goal: prove that a GitHub issue can reliably trigger local coding work.
 - [x] Create isolated workspace per issue
 - [x] Create branch such as `ai/123-short-description`
 - [x] Build Codex prompt from issue title and description
-- [ ] Start Codex as a subprocess
-- [ ] Use LM Studio as the Codex model provider
-- [ ] Sanitize environment passed to Codex
-- [ ] Capture Codex stdout/stderr
-- [ ] Capture Codex exit status
-- [ ] Record execution duration
+- [x] Start Codex as a subprocess
+- [x] Use LM Studio as the Codex model provider
+- [x] Sanitize environment passed to Codex
+- [x] Capture Codex stdout/stderr
+- [x] Capture Codex exit status
+- [x] Record execution duration
 - [ ] Store basic run logs
-- [ ] Handle failed Codex runs
-- [ ] Mark failed issues as `ai-blocked`
-- [ ] Add unit tests for orchestration logic
+- [x] Handle failed Codex runs
+- [x] Mark failed issues as `ai-blocked`
+- [x] Add unit tests for orchestration logic
 - [ ] Add `.env.example`
 - [ ] Add `.gitignore`
 - [ ] Document local setup
@@ -459,9 +476,6 @@ Goal: make LocalForge behave like a developer receiving work from a product owne
 - [ ] Push successful agent branches to GitHub
 - [ ] Create pull requests automatically
 - [ ] Link PRs to their originating issue
-- [ ] Comment on issues with run results
-- [ ] Add `human-review` label
-- [ ] Remove `ai-working` after completion
 - [ ] Record branch and PR identifiers
 - [ ] Detect failed CI
 - [ ] Allow retrying an issue

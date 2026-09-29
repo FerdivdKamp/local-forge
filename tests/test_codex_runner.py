@@ -3,8 +3,16 @@
 from __future__ import annotations
 
 import unittest
+from pathlib import Path
+from subprocess import CompletedProcess
+from unittest.mock import patch
 
-from localforge.codex_runner import build_codex_command, build_issue_prompt
+from localforge.codex_runner import (
+    build_codex_command,
+    build_issue_prompt,
+    run_codex,
+    sanitized_environment,
+)
 
 
 class CodexCommandTests(unittest.TestCase):
@@ -35,3 +43,52 @@ class IssuePromptTests(unittest.TestCase):
         prompt = build_issue_prompt(42, "Add a health endpoint", None)
 
         self.assertIn("No description was provided.", prompt)
+
+
+class CodexRunnerTests(unittest.TestCase):
+    def test_sanitized_environment_excludes_credentials(self) -> None:
+        environment = sanitized_environment(
+            {
+                "Path": "C:\\Windows",
+                "GITHUB_TOKEN": "secret",
+                "OPENAI_API_KEY": "secret",
+                "UNRELATED_SETTING": "value",
+            }
+        )
+
+        self.assertEqual(environment, {"Path": "C:\\Windows"})
+
+    def test_runs_codex_exec_in_the_workspace_and_captures_result(self) -> None:
+        completed = CompletedProcess(
+            args=(), returncode=0, stdout="implemented", stderr=""
+        )
+        with (
+            patch("localforge.codex_runner.subprocess.run", return_value=completed) as run,
+            patch("localforge.codex_runner.time.monotonic", side_effect=(10.0, 12.5)),
+            patch("localforge.codex_runner.sanitized_environment", return_value={"Path": "safe"}),
+        ):
+            result = run_codex(Path("worktree"), "codex", "ignored", "Fix the bug")
+
+        self.assertEqual(result.exit_code, 0)
+        self.assertEqual(result.stdout, "implemented")
+        self.assertEqual(result.duration_seconds, 2.5)
+        run.assert_called_once_with(
+            ("codex", "exec", "--approve-for-me", "--color", "never", "Fix the bug"),
+            cwd=Path("worktree"),
+            env={"Path": "safe"},
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            capture_output=True,
+            check=False,
+        )
+
+    def test_returns_a_failed_result_when_codex_cannot_start(self) -> None:
+        with (
+            patch("localforge.codex_runner.subprocess.run", side_effect=FileNotFoundError("codex")),
+            patch("localforge.codex_runner.time.monotonic", side_effect=(10.0, 10.5)),
+        ):
+            result = run_codex(Path("worktree"), "codex", "ignored", "Fix the bug")
+
+        self.assertEqual(result.exit_code, 127)
+        self.assertIn("codex", result.stderr)
