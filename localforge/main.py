@@ -10,7 +10,7 @@ from pathlib import Path
 
 from localforge.config import Settings, load_config
 from localforge.codex_runner import build_issue_prompt, run_codex
-from localforge.github_client import GitHubClient
+from localforge.github_client import GitHubClient, PullRequest
 from localforge.run_log import store_run_log
 from localforge.workspace import WorkspaceManager
 
@@ -53,13 +53,22 @@ def build_run_comment(
     exit_code: int,
     duration_seconds: float,
     log_path: object,
+    pull_request: PullRequest | None = None,
 ) -> str:
-    """Describe where a completed local run can be reviewed without publishing code."""
+    """Describe the local run and, when available, its published pull request."""
     status = "completed successfully" if exit_code == 0 else "failed"
+    branch_description = f"Local branch: `{branch}` (not pushed)"
+    pull_request_description = ""
+    if pull_request:
+        branch_description = f"Published branch: `{branch}`"
+        pull_request_description = (
+            f"Pull request: [#{pull_request.number}]({pull_request.url})\n"
+        )
     return (
         "## LocalForge run\n\n"
         f"Codex {status} (exit status: {exit_code}; duration: {duration_seconds:.1f}s).\n\n"
-        f"Local branch: `{branch}` (not pushed)\n"
+        f"{branch_description}\n"
+        f"{pull_request_description}"
         f"Review worktree: `{workspace_path}`\n"
         f"Local run log: `{log_path}`\n"
     )
@@ -92,7 +101,8 @@ async def run(apply: bool, limit: int) -> int:
             print(f"  moved from {ready_label!r} to {working_label!r}")
             if not settings.workspace_root:
                 raise ValueError("Missing required configuration: WORKSPACE_ROOT")
-            workspace = WorkspaceManager(settings.workspace_root, owner, repo).prepare_issue(
+            workspace_manager = WorkspaceManager(settings.workspace_root, owner, repo)
+            workspace = workspace_manager.prepare_issue(
                 issue.number,
                 issue.title,
             )
@@ -121,11 +131,44 @@ async def run(apply: bool, limit: int) -> int:
                 result,
             )
             print(f"  run log: {log_path}")
+            pull_request = None
+            if result.exit_code == 0:
+                committed = workspace_manager.commit_issue_changes(
+                    workspace,
+                    issue.number,
+                    issue.title,
+                )
+                if committed:
+                    print("  committed Codex changes")
+            has_changes = result.exit_code == 0 and workspace_manager.has_issue_branch_changes(workspace)
+            if has_changes:
+                workspace_manager.push_issue_branch(workspace)
+                print(f"  pushed branch: {workspace.branch}")
+                pull_request = await client.create_pull_request(
+                    owner,
+                    repo,
+                    issue.number,
+                    issue.title,
+                    workspace.branch,
+                )
+                print(f"  pull request: #{pull_request.number} ({pull_request.url})")
+            elif result.exit_code == 0:
+                print("  no commits beyond the default branch; no pull request created")
             target_label = (
                 settings.human_review_label
-                if result.exit_code == 0
+                if has_changes
                 else settings.ai_blocked_label
             )
+            comment = build_run_comment(
+                workspace.path,
+                workspace.branch,
+                result.exit_code,
+                result.duration_seconds,
+                log_path,
+                pull_request,
+            )
+            if result.exit_code == 0 and not has_changes:
+                comment += "\nNo commits were created beyond the default branch, so LocalForge did not publish a branch or open a pull request.\n"
             await client.move_issue_to_label(
                 owner,
                 repo,
@@ -137,13 +180,7 @@ async def run(apply: bool, limit: int) -> int:
                 owner,
                 repo,
                 issue.number,
-                build_run_comment(
-                    workspace.path,
-                    workspace.branch,
-                    result.exit_code,
-                    result.duration_seconds,
-                    log_path,
-                ),
+                comment,
             )
             print(f"  moved from {working_label!r} to {target_label!r}")
             if result.exit_code != 0:

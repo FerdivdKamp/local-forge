@@ -38,6 +38,11 @@ Install Git, the Codex CLI, and (when using `CODEX_MODE=lm-studio`) start and
 configure LM Studio before applying an issue. The configured GitHub token is
 used only by LocalForge and is removed from Codex's environment.
 
+If GitHub access needs a network proxy, set `HTTPS_PROXY` (and `HTTP_PROXY` if
+required) in the LocalForge process environment. Also set
+`NO_PROXY=localhost,127.0.0.1` so LM Studio's local endpoint is not routed
+through that proxy.
+
 First use a dry run to list one eligible issue without changing GitHub or the
 local filesystem:
 
@@ -54,14 +59,16 @@ poetry run python -m localforge.main --apply
 
 The worktree is created under `WORKSPACE_ROOT/issues/<issue-number>-<slug>` and
 its branch is named `ai/<issue-number>-<slug>`. LocalForge then runs Codex
-non-interactively in that worktree. When it finishes, LocalForge updates the
-issue label and adds a GitHub comment with the local branch and worktree path.
+non-interactively in that worktree. On success, it pushes that branch, opens a
+pull request that closes the originating issue on merge, and records the branch,
+PR number, PR link, worktree path, and local run-log path in an issue comment.
+It then moves the issue to `human-review`.
 
 ### Review a completed run
 
-V1 does not push code, so the branch is available only on the machine running
-LocalForge. When an issue is labelled `human-review`, open the worktree path
-from the GitHub comment in your IDE, or inspect it from PowerShell:
+When an issue is labelled `human-review`, review its linked pull request and,
+when needed, open the worktree path from the GitHub comment in your IDE. You can
+also inspect the local branch from PowerShell:
 
 ```powershell
 git -C WORKSPACE_ROOT/issues/<issue-number>-<slug> status
@@ -174,9 +181,8 @@ Codex runs relevant tests
 LocalForge records result, updates its label, and comments on the issue
 ```
 
-Initially, LocalForge will **not automatically push changes or create pull requests**.
-
-This allows the local agent workflow to be tested safely before GitHub write operations are introduced.
+LocalForge pushes only a branch for a successful Codex run, then opens one pull
+request linked to the originating issue. It does not merge that pull request.
 
 ---
 
@@ -390,8 +396,9 @@ The agent could not complete the task successfully or requires human input.
 
 ### `human-review`
 
-Codex completed successfully. The issue comment tells the reviewer where to
-find the unpushed local worktree and branch.
+Codex completed successfully and LocalForge opened a linked pull request. The
+issue comment records its number and URL, as well as the local worktree, branch,
+and run log.
 
 ---
 
@@ -461,12 +468,10 @@ Goal: prove that a GitHub issue can reliably trigger local coding work.
 - [x] Add `.gitignore`
 - [x] Document local setup
 
-### V1 safety boundary
+### Current safety boundary
 
-V1 should **not** automatically:
+LocalForge must not automatically:
 
-- push branches
-- create pull requests
 - merge code
 - react to PR comments
 - expose an HTTP API
@@ -481,10 +486,10 @@ Goal: make LocalForge behave like a developer receiving work from a product owne
 
 ### TODO
 
-- [ ] Push successful agent branches to GitHub
-- [ ] Create pull requests automatically
-- [ ] Link PRs to their originating issue
-- [ ] Record branch and PR identifiers
+- [x] Push successful agent branches to GitHub
+- [x] Create pull requests automatically
+- [x] Link PRs to their originating issue
+- [x] Record branch and PR identifiers
 - [ ] Detect failed CI
 - [ ] Allow retrying an issue
 - [ ] Handle PR review comments

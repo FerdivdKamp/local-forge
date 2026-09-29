@@ -68,7 +68,7 @@ def build_issue_prompt(issue_number: int, title: str, body: str | None) -> str:
 
         Read AGENTS.md and relevant project documentation before making changes.
         Work only in this worktree. Do not push branches, create pull requests,
-        change GitHub issue state, or access LocalForge credentials.
+        commit changes, change GitHub issue state, or access LocalForge credentials.
 
         Issue title: {title.strip()}
 
@@ -77,7 +77,8 @@ def build_issue_prompt(issue_number: int, title: str, body: str | None) -> str:
 
         Implement the requested change, add or update relevant tests, and run the
         appropriate test commands. At the end, report the files changed and the
-        tests run with their result.
+        tests run with their result. LocalForge will commit and publish completed
+        work after this run succeeds.
         """
     ).strip()
 
