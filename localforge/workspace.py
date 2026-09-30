@@ -109,6 +109,12 @@ class WorkspaceManager:
         )
         return int(commit_count) > 0
 
+    def list_changed_files(self, workspace: IssueWorkspace) -> tuple[str, ...]:
+        """List tracked and untracked paths modified by the Codex run."""
+        output = self._git("status", "--porcelain", "--untracked-files=all",
+                           cwd=workspace.path, capture_output=True)
+        return tuple(line[3:].split(" -> ")[-1] for line in output.splitlines() if len(line) >= 4)
+
     def _ensure_repository_cache(self) -> None:
         repository = self.repository_path
         if (repository / ".git").exists():
@@ -148,4 +154,4 @@ class WorkspaceManager:
             )
         except (OSError, subprocess.CalledProcessError) as error:
             raise WorkspaceError(f"Git command failed: {' '.join(command)}") from error
-        return result.stdout.strip() if capture_output else ""
+        return result.stdout.rstrip("\r\n") if capture_output else ""

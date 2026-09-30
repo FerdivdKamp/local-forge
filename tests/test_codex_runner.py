@@ -75,7 +75,7 @@ class CodexRunnerTests(unittest.TestCase):
         self.assertEqual(result.stdout, "implemented")
         self.assertEqual(result.duration_seconds, 2.5)
         run.assert_called_once_with(
-            ("codex", "exec", "--approve-for-me", "--color", "never", "Fix the bug"),
+            ("codex", "exec", "--approve-for-me", "--json", "--color", "never", "Fix the bug"),
             cwd=Path("worktree"),
             env={"Path": "safe"},
             text=True,

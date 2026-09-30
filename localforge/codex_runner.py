@@ -9,6 +9,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from textwrap import dedent
 
+from localforge.codex_events import TestRun, TokenUsage, parse_codex_events
+
 
 DEFAULT_OSS_MODEL = "unsloth/qwen3-coder-30b-a3b-instruct"
 _SAFE_ENVIRONMENT_VARIABLES = frozenset(
@@ -37,6 +39,9 @@ class CodexRunResult:
     stdout: str
     stderr: str
     duration_seconds: float
+    usage: TokenUsage | None = None
+    test_runs: tuple[TestRun, ...] = ()
+    event_stream: str = ""
 
 
 def build_codex_command(mode: str, model: str = DEFAULT_OSS_MODEL) -> tuple[str, ...]:
@@ -100,7 +105,7 @@ def run_codex(
     prompt: str,
 ) -> CodexRunResult:
     """Run Codex non-interactively in an issue worktree and capture its result."""
-    command = (*build_codex_command(mode, model), "exec", "--approve-for-me", "--color", "never", prompt)
+    command = (*build_codex_command(mode, model), "exec", "--approve-for-me", "--json", "--color", "never", prompt)
     started = time.monotonic()
     try:
         completed = subprocess.run(
@@ -122,10 +127,14 @@ def run_codex(
             duration_seconds=time.monotonic() - started,
         )
 
+    events = parse_codex_events(completed.stdout)
     return CodexRunResult(
         command=command,
         exit_code=completed.returncode,
-        stdout=completed.stdout,
+        stdout=events.final_message or completed.stdout,
         stderr=completed.stderr,
         duration_seconds=time.monotonic() - started,
+        usage=events.usage,
+        test_runs=events.test_runs,
+        event_stream=completed.stdout if events.final_message else "",
     )

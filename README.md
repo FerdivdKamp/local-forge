@@ -80,6 +80,20 @@ publish Codex's full output, which may contain local project details.
 LocalForge saves that output in a timestamped file under
 `WORKSPACE_ROOT/run-logs/` for local diagnosis.
 
+Each applied issue also writes a row to `WORKSPACE_ROOT/localforge.sqlite3`.
+The row records the issue, run status, timestamps, configured local model,
+workspace, branch, exit status, duration, log path, and any created PR. It also
+records token counts when Codex reports them, changed files, and test commands
+with their exit codes when they appear in Codex's command events. Small
+JSON events are appended to `WORKSPACE_ROOT/run-logs/events.jsonl`; they omit
+the issue body, Codex output, and credentials. A dry run writes neither file.
+The detailed run log includes Codex's JSONL trace. Missing token counts mean
+the provider did not report usage; they do not mean zero tokens. No test status
+is recorded when no recognizable test command appears in the trace; a command
+with no reported exit code has unknown status.
+Codex's interactive `/status` shows account rate limits, which are not a
+per-run token counter.
+
 ### Run unit tests
 
 Run the full test suite with:
@@ -496,12 +510,12 @@ Goal: make LocalForge behave like a developer receiving work from a product owne
 - [ ] Allow reviewer feedback to trigger another Codex run
 - [ ] Update the existing PR branch
 - [ ] Prevent duplicate PR creation
-- [ ] Add structured JSON logging
-- [ ] Persist run state in SQLite
-- [ ] Track model used for each run
-- [ ] Track token usage where available
-- [ ] Track files changed
-- [ ] Track tests executed and test result
+- [x] Add structured JSON logging
+- [x] Persist run state in SQLite
+- [x] Track model used for each run
+- [x] Track token usage where available
+- [x] Track files changed
+- [x] Track tests executed and test result
 - [ ] Add basic concurrency protection
 
 Expected workflow:
