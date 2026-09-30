@@ -94,6 +94,60 @@ with no reported exit code has unknown status.
 Codex's interactive `/status` shows account rate limits, which are not a
 per-run token counter.
 
+### Check V2 logging and run metrics
+
+Run the focused tests from this repository's root. They use mocks and temporary
+files; they do not start Codex or change GitHub issues:
+
+```powershell
+poetry run python -m unittest tests.test_codex_events tests.test_run_state tests.test_main tests.test_workspace -v
+```
+
+To inspect a real run, configure a test issue with the `ai-ready` label and run
+the dry run command above to confirm which issue will be selected. Then run
+`poetry run python -m localforge.main --apply`. This changes the issue labels
+and, when Codex creates commits successfully, pushes a branch and opens a PR.
+Set `$workspaceRoot` to the `workspace_root` from your `config.ini` (or the
+`WORKSPACE_ROOT` environment variable). For the example configuration above:
+
+```powershell
+$workspaceRoot = (Resolve-Path ../workspaces).Path
+$query = @'
+import json
+import sqlite3
+import sys
+from pathlib import Path
+
+database = Path(sys.argv[1]) / "localforge.sqlite3"
+connection = sqlite3.connect(database)
+connection.row_factory = sqlite3.Row
+row = connection.execute("""
+    SELECT id, issue_number, status, model, exit_code, duration_seconds,
+           input_tokens, cached_input_tokens, output_tokens,
+           reasoning_output_tokens, total_tokens, tests_status, tests_json,
+           files_changed_count, files_changed_json, branch, pr_url, log_path
+    FROM runs ORDER BY id DESC LIMIT 1
+""").fetchone()
+print(json.dumps(dict(row), indent=2) if row else "No applied runs recorded.")
+connection.close()
+'@
+$query | poetry run python - $workspaceRoot
+```
+
+The row is in `WORKSPACE_ROOT/localforge.sqlite3`. `tests_json` lists detected
+test commands and exit codes; `files_changed_json` lists paths changed before
+LocalForge commits them. Token columns are `null` when Codex or the model did
+not report usage. Check the short JSON events and the latest detailed run log
+with:
+
+```powershell
+Get-Content (Join-Path $workspaceRoot 'run-logs/events.jsonl') -Tail 5
+Get-ChildItem (Join-Path $workspaceRoot 'run-logs') -Filter 'issue-*.log' |
+    Sort-Object LastWriteTime -Descending | Select-Object -First 1 | Get-Content
+```
+
+The detailed log contains Codex's output and JSONL trace, so keep it local.
+
 ### Run unit tests
 
 Run the full test suite with:
