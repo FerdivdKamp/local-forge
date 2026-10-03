@@ -1,0 +1,1 @@
+Create a module named `slug.py` with a function `slugify(text: str) -> str`. Convert ASCII letters to lowercase, replace each run of spaces or hyphens with one hyphen, and trim hyphens at both ends. Add a visible unittest for an ordinary example. Keep the implementation focused.

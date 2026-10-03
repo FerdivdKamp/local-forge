@@ -79,6 +79,22 @@ These thresholds are starting hypotheses, not a claim that the model is ready. R
 
 ## Build order and completion criteria
 
+### V1 Python pilot checklist
+
+- [x] Add disposable Python fixtures for file creation, bug repair, and seeded review.
+- [x] Keep implementation verifiers and the review answer key outside agent workspaces.
+- [x] Record Codex duration, exit status, reported tokens, trace, response, diff, and verifier result per attempt.
+- [x] Store attempts in separate `eval_*` SQLite tables and provide a per-case CLI report.
+- [ ] Run each case at least three times for two real model/settings combinations and adjudicate the review case.
+
+### V2 expansion checklist
+
+- [x] Add a pinned `ghapi` v2 documentation lookup case with exact mocked GET parameters and web-tool trace observation.
+- [ ] Add broader authoritative documentation lookup cases and explicit web capability detection.
+- [ ] Compare direct whole-issue work with online planned subtasks using the same end-to-end verifier.
+- [ ] Add blinded review adjudication and report review precision and recall.
+- [ ] Use the repeated results and human spot checks to set guarded routing rules.
+
 1. Implement fixture format, disposable runner, and deterministic verifier for file creation/editing and a seeded review case.
 2. Add SQLite persistence and a small report command; confirm that failed and timed-out attempts produce complete records.
 3. Add version-pinned package/API and web-lookup cases, with explicit capability detection.

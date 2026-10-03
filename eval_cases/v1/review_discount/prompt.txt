@@ -1,0 +1,1 @@
+Review `checkout.py` as a proposed implementation of a percentage discount. Report concrete defects with file and line, impact, and a concise suggested fix. Do not edit files. If there are no defects, say so.
