@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import shutil
 import sqlite3
 import statistics
@@ -20,7 +21,7 @@ from localforge.config import load_config
 
 
 ROOT = Path(__file__).resolve().parent.parent
-CASES = ROOT / "eval_cases" / "v1"
+CASES = ROOT / "eval_cases"
 PROMPT_VERSION = "v1"
 
 
@@ -28,8 +29,9 @@ def now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
-def case_names() -> list[str]:
-    return sorted(path.name for path in CASES.iterdir() if (path / "case.json").is_file())
+def case_names(suite: str = "v1") -> list[str]:
+    return sorted(path.name for path in (CASES / suite).iterdir()
+                  if (path / "case.json").is_file())
 
 
 def database(path: Path) -> sqlite3.Connection:
@@ -101,8 +103,9 @@ def run_process(command: tuple[str, ...] | list[str], cwd: Path, timeout: int,
 
 
 def run_case(name: str, root: Path, mode: str, model: str, timeout: int,
-             web_access: str = "live") -> int:
-    case_dir = CASES / name
+             web_access: str = "live", suite: str = "v1",
+             godot: str | None = None, godot_version: str | None = None) -> int:
+    case_dir = CASES / suite / name
     spec = json.loads((case_dir / "case.json").read_text(encoding="utf-8"))
     artifacts = root / "run-logs" / "eval"
     artifacts.mkdir(parents=True, exist_ok=True)
@@ -125,6 +128,8 @@ def run_case(name: str, root: Path, mode: str, model: str, timeout: int,
     prompt = (case_dir / "prompt.txt").read_text(encoding="utf-8").strip()
     prompt = ("Read AGENTS.md. Work only in this repository. Do not commit, push, "
               "create pull requests, or access external credentials.\n\n" + prompt)
+    if spec.get("language") == "gdscript":
+        prompt += f"\n\nGodot 4 executable for local headless tests: {godot or 'godot'}"
     (attempt_dir / "prompt.txt").write_text(prompt, encoding="utf-8")
     started_at = now()
     started = time.monotonic()
@@ -170,29 +175,38 @@ def run_case(name: str, root: Path, mode: str, model: str, timeout: int,
     else:
         verify_env = sanitized_environment()
         verify_env["PYTHONPATH"] = str(workspace)
-        verifier = ROOT / "eval_verifiers" / f"{name}.py"
+        is_godot = spec.get("language") == "gdscript"
+        verifier = ROOT / "eval_verifiers" / ("godot_v1" if is_godot else "") / (
+            f"{name}.gd" if is_godot else f"{name}.py")
+        verify_command = ((godot or "godot", "--headless", "--path", str(workspace),
+                           "--script", str(verifier)) if is_godot else
+                          (sys.executable, str(verifier)))
         verifier_code, verify_out, verify_err, verify_timeout = run_process(
-            (sys.executable, str(verifier)), workspace, 30, verify_env)
+            verify_command, workspace, 30, verify_env)
         (attempt_dir / "verification.txt").write_text(verify_out + verify_err,
                                                       encoding="utf-8")
-        verifier_passed = verifier_code == 0 and not verify_timeout
+        verifier_passed = verifier_code == 0 and not verify_timeout and (
+            not is_godot or "EVAL_PASS" in verify_out)
         status = "passed" if verifier_passed else "failed"
         if not verifier_passed:
-            reason = "Verifier timeout" if verify_timeout else f"Verifier exit {verifier_code}"
+            reason = ("Verifier timeout" if verify_timeout else
+                      "Godot verifier did not signal success" if is_godot and verifier_code == 0 else
+                      f"Verifier exit {verifier_code}")
     changed = subprocess.run(("git", "status", "--short"), cwd=workspace, text=True,
                              capture_output=True, check=False).stdout
     (attempt_dir / "changed-files.txt").write_text(changed, encoding="utf-8")
-    metadata = {"case": name, "suite": "v1", "fixture_revision": spec["revision"],
+    metadata = {"case": name, "suite": suite, "fixture_revision": spec["revision"],
                 "starting_commit": revision, "mode": mode, "model": model,
                 "command": list(command[:-1]), "timeout_seconds": timeout,
                 "web_search_status": web_status,
                 "source_cited": source_cited,
                 "codex_version": "unknown", "seed": "unknown", "settings": "unknown",
+                "godot_version": godot_version,
                 "started_at": started_at, "finished_at": now()}
     (attempt_dir / "metadata.json").write_text(json.dumps(metadata, indent=2), encoding="utf-8")
     with closing(database(root / "localforge.sqlite3")) as db, db:
         db.execute("INSERT OR REPLACE INTO eval_cases VALUES (?, ?, ?, ?, ?)",
-                   (name, "v1", spec["category"], spec["revision"], spec["rubric_version"]))
+                   (name, suite, spec["category"], spec["revision"], spec["rubric_version"]))
         cursor = db.execute("""INSERT INTO eval_attempts (
             case_id, suite, fixture_revision, rubric_version, route, model, mode,
             settings_json, prompt_version, started_at,
@@ -201,9 +215,10 @@ def run_case(name: str, root: Path, mode: str, model: str, timeout: int,
             verifier_exit_code, failure_reason, agent_tests_json, web_search_status,
             source_cited
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-            (name, "v1", spec["revision"], spec["rubric_version"], spec["route"],
+            (name, suite, spec["revision"], spec["rubric_version"], spec["route"],
              model, mode, json.dumps({"timeout_seconds": timeout,
-             "inference_settings": "unknown", "web_access": web_access}),
+             "inference_settings": "unknown", "web_access": web_access,
+             "godot_version": godot_version if spec.get("language") == "gdscript" else None}),
              PROMPT_VERSION, started_at, now(),
              status, exit_code, duration, events.usage.input_tokens if events.usage else None,
              events.usage.output_tokens if events.usage else None,
@@ -253,13 +268,14 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     sub = parser.add_subparsers(dest="command", required=True)
     run = sub.add_parser("run")
-    run.add_argument("--suite", choices=["v1"], default="v1")
-    run.add_argument("--case", choices=case_names())
+    run.add_argument("--suite", choices=["v1", "godot_v1"], default="v1")
+    run.add_argument("--case")
     run.add_argument("--mode", choices=["codex", "lm-studio"], default="lm-studio")
     run.add_argument("--model")
     run.add_argument("--repeat", type=int, default=1)
     run.add_argument("--timeout", type=int, default=600)
     run.add_argument("--web-access", choices=["live", "disabled"], default="live")
+    run.add_argument("--godot", help="Godot 4 executable; overrides GODOT_PATH/config.ini")
     sub.add_parser("report")
     args = parser.parse_args(argv)
     configured = load_config()
@@ -269,12 +285,24 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     if args.repeat < 1 or args.timeout < 1:
         parser.error("--repeat and --timeout must be positive")
+    names = case_names(args.suite)
+    if args.case and args.case not in names:
+        parser.error(f"unknown case for {args.suite}: {args.case}")
+    godot = args.godot or configured.godot_path or "godot"
+    godot_version = None
+    if args.suite == "godot_v1":
+        code, output, error, _ = run_process((godot, "--version"), Path.cwd(), 15,
+                                              sanitized_environment())
+        version_output = (output + "\n" + error).strip()
+        if code != 0 or not re.search(r"\bv?4\.", version_output):
+            parser.error(f"Godot 4 executable required (GODOT_PATH or --godot): {error or output}")
+        godot_version = version_output
     model = args.model or configured.codex_model
     failures = 0
     for _ in range(args.repeat):
-        for name in ([args.case] if args.case else case_names()):
+        for name in ([args.case] if args.case else names):
             failures += run_case(name, root, args.mode, model, args.timeout,
-                                 args.web_access)
+                                 args.web_access, args.suite, godot, godot_version)
     return 1 if failures else 0
 
 

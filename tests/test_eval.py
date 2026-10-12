@@ -16,6 +16,32 @@ class EvalTests(unittest.TestCase):
     def test_expected_v1_cases_exist(self) -> None:
         self.assertEqual(evaluation.case_names(),
                          ["create_module", "fix_total", "ghapi_web_get", "review_discount"])
+        self.assertEqual(evaluation.case_names("godot_v1"),
+                         ["godot_grid", "godot_health", "godot_inventory"])
+
+    def test_godot_case_uses_headless_hidden_verifier(self) -> None:
+        original = evaluation.run_process
+        for verifier_output, expected in (("EVAL_PASS\n", "passed"), ("", "failed")):
+            with self.subTest(expected=expected), tempfile.TemporaryDirectory() as temp:
+                verifier_commands = []
+
+                def fake_process(command, cwd, timeout, environment):
+                    if command[0] == "codex":
+                        return 0, "", "", False
+                    if command[0] == "godot-test":
+                        verifier_commands.append(command)
+                        return 0, verifier_output, "", False
+                    return original(command, cwd, timeout, environment)
+
+                with patch.object(evaluation, "run_process", side_effect=fake_process):
+                    evaluation.run_case("godot_grid", Path(temp), "codex", "ignored", 5,
+                                        suite="godot_v1", godot="godot-test")
+                self.assertEqual(len(verifier_commands), 1)
+                self.assertEqual(verifier_commands[0][1:3], ("--headless", "--path"))
+                self.assertTrue(verifier_commands[0][-1].endswith("godot_grid.gd"))
+                with closing(sqlite3.connect(Path(temp) / "localforge.sqlite3")) as db:
+                    status = db.execute("SELECT status FROM eval_attempts").fetchone()[0]
+                self.assertEqual(status, expected)
 
     def test_web_search_needs_tool_event(self) -> None:
         self.assertFalse(evaluation.observed_web_search(

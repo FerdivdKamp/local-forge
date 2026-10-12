@@ -21,6 +21,7 @@ class Settings:
     human_review_label: str
     codex_mode: str
     codex_model: str
+    godot_path: str | None = None
 
 
 def load_config(config_path: Path | str = "config.ini") -> Settings:
@@ -46,4 +47,5 @@ def load_config(config_path: Path | str = "config.ini") -> Settings:
         human_review_label=get("HUMAN_REVIEW_LABEL") or "human-review",
         codex_mode=get("CODEX_MODE") or "codex",
         codex_model=get("CODEX_MODEL") or "unsloth/qwen3-coder-30b-a3b-instruct",
+        godot_path=get("GODOT_PATH"),
     )

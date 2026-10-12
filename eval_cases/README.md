@@ -1,4 +1,4 @@
-# Local Python evaluation suite
+# Local evaluation suites
 
 Run from the LocalForge repository root after `poetry install`. Set
 `WORKSPACE_ROOT` to a local directory for evaluation data, or configure
@@ -47,3 +47,23 @@ artifacts. Visible tests run by Codex are logged
 as behavior, while independent verifier results determine implementation passes.
 The verifiers are outside each disposable workspace. No live GitHub issue is
 used, and the evaluation runner does not change issue labels or publish code.
+
+## Godot 4 GDScript cases
+
+The separate `godot_v1` suite has three small cases: create a health component,
+fix grid-cell calculation, and fix inventory weight calculation. Each fixture is
+a minimal Godot 4 project. Hidden GDScript verifiers run with the Godot 4
+executable in headless mode; the editor window is not needed. Set `godot_path`
+in `config.ini`, set `GODOT_PATH`, or pass `--godot` with the executable path:
+
+```powershell
+poetry run python -m localforge.eval run --suite godot_v1 --mode lm-studio --model your/model --godot "C:/Tools/Godot/Godot_v4.4-stable_win64_console.exe" --repeat 3
+poetry run python -m localforge.eval report
+```
+
+The runner checks `godot --version` for major version 4 before starting Codex.
+It then runs each hidden verifier as `godot --headless --path <workspace>
+--script <absolute verifier path>`. A passing verifier must exit with code zero
+and print `EVAL_PASS`. The verifiers live outside the agent workspace. Godot's
+generated `.godot/` cache is ignored by the fixtures. This adds no Python
+dependency; you only need the Godot 4 executable available locally.

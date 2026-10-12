@@ -90,6 +90,8 @@ These thresholds are starting hypotheses, not a claim that the model is ready. R
 ### V2 expansion checklist
 
 - [x] Add a pinned `ghapi` v2 documentation lookup case with exact mocked GET parameters and web-tool trace observation.
+- [x] Add a separate small Godot 4 GDScript suite with headless hidden verifiers and a configurable executable path.
+- [ ] Run the Godot suite against a real Godot 4 executable and model.
 - [ ] Add broader authoritative documentation lookup cases and explicit web capability detection.
 - [ ] Compare direct whole-issue work with online planned subtasks using the same end-to-end verifier.
 - [ ] Add blinded review adjudication and report review precision and recall.
