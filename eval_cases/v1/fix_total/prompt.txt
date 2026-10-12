@@ -1,0 +1,1 @@
+Fix `cart.total` so the total applies each item's quantity and a percentage discount correctly. Keep the public function signature. Add a regression test and run the tests. Avoid unrelated changes.

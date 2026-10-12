@@ -1,0 +1,1 @@
+Fix `scripts/grid.gd` so `to_cell(world_position: Vector2, cell_size: float) -> Vector2i` returns the containing grid cell using floor division on each axis. Cell size is positive. This must work for negative world coordinates and points exactly on cell boundaries. Add a regression test and run it headlessly.

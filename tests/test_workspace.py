@@ -18,6 +18,15 @@ class IssueSlugTests(unittest.TestCase):
 
 
 class WorkspaceManagerTests(unittest.TestCase):
+    def test_lists_changed_and_untracked_files(self) -> None:
+        manager = WorkspaceManager(Path.cwd() / "workspaces", "octo", "widget")
+        workspace = IssueWorkspace(Path("workspaces/issues/42-fix"), "ai/42-fix")
+        with patch.object(manager, "_git", return_value=" M src/app.py\n?? tests/test_app.py") as git:
+            files = manager.list_changed_files(workspace)
+        self.assertEqual(files, ("src/app.py", "tests/test_app.py"))
+        git.assert_called_once_with("status", "--porcelain", "--untracked-files=all",
+                                    cwd=workspace.path, capture_output=True)
+
     def test_pushes_the_issue_branch_to_origin(self) -> None:
         manager = WorkspaceManager(Path.cwd() / "workspaces", "octo", "widget")
         workspace = IssueWorkspace(

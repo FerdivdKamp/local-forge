@@ -3,9 +3,19 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+import json
 from pathlib import Path
 
 from localforge.codex_runner import CodexRunResult
+
+
+def log_event(log_root: Path | str, event: str, **fields: object) -> None:
+    """Append a small structured event without publishing Codex output or secrets."""
+    directory = Path(log_root)
+    directory.mkdir(parents=True, exist_ok=True)
+    record = {"timestamp": datetime.now(timezone.utc).isoformat(), "event": event, **fields}
+    with (directory / "events.jsonl").open("a", encoding="utf-8") as stream:
+        stream.write(json.dumps(record, ensure_ascii=False) + "\n")
 
 
 def store_run_log(
@@ -46,6 +56,9 @@ def store_run_log(
                 "",
                 "--- Codex stderr ---",
                 result.stderr,
+                "",
+                "--- Codex events (JSONL) ---",
+                result.event_stream,
                 "",
             )
         ),

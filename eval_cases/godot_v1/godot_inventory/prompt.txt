@@ -1,0 +1,1 @@
+Fix `scripts/inventory.gd` so `total_weight(items: Array[Dictionary]) -> int` sums each item's integer `weight` times its integer `quantity`. Missing quantity means one. Ignore entries with zero or negative quantity. Return zero for an empty array. Add a regression test and run it headlessly.

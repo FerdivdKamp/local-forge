@@ -47,6 +47,7 @@ class MainRunTests(unittest.IsolatedAsyncioTestCase):
             patch("localforge.main.store_run_log", return_value=Path("workspaces/run-logs/issue-42.log")) as store_log,
         ):
             manager.return_value.prepare_issue.return_value = workspace
+            manager.return_value.list_changed_files.return_value = ("src/fix.py",)
             manager.return_value.commit_issue_changes.return_value = True
             manager.return_value.has_issue_branch_changes.return_value = True
             exit_code = await run(apply=True, limit=1)
@@ -110,6 +111,7 @@ class MainRunTests(unittest.IsolatedAsyncioTestCase):
             patch("localforge.main.store_run_log", return_value=Path("workspaces/run-logs/issue-42.log")),
         ):
             manager.return_value.prepare_issue.return_value = workspace
+            manager.return_value.list_changed_files.return_value = ()
             exit_code = await run(apply=True, limit=1)
 
         self.assertEqual(exit_code, 1)
@@ -144,6 +146,7 @@ class MainRunTests(unittest.IsolatedAsyncioTestCase):
             patch("localforge.main.store_run_log", return_value=Path("workspaces/run-logs/issue-42.log")),
         ):
             manager.return_value.prepare_issue.return_value = workspace
+            manager.return_value.list_changed_files.return_value = ()
             manager.return_value.commit_issue_changes.return_value = False
             manager.return_value.has_issue_branch_changes.return_value = False
             exit_code = await run(apply=True, limit=1)
