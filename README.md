@@ -398,7 +398,7 @@ Codex should receive only the environment variables required to build and test t
 Codex CLI, or `lm-studio` for a local model through LM Studio. The latter builds:
 
 ```text
-codex --oss -m unsloth/qwen3-coder-30b-a3b-instruct
+codex --oss --local-provider lmstudio -m unsloth/qwen3-coder-30b-a3b-instruct
 ```
 
 Set `CODEX_MODEL` to select a different local model. LM Studio must be running

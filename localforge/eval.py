@@ -104,7 +104,8 @@ def run_process(command: tuple[str, ...] | list[str], cwd: Path, timeout: int,
 
 def run_case(name: str, root: Path, mode: str, model: str, timeout: int,
              web_access: str = "live", suite: str = "v1",
-             godot: str | None = None, godot_version: str | None = None) -> int:
+             godot: str | None = None, godot_version: str | None = None,
+             reasoning_effort: str = "low") -> int:
     case_dir = CASES / suite / name
     spec = json.loads((case_dir / "case.json").read_text(encoding="utf-8"))
     artifacts = root / "run-logs" / "eval"
@@ -128,14 +129,20 @@ def run_case(name: str, root: Path, mode: str, model: str, timeout: int,
     prompt = (case_dir / "prompt.txt").read_text(encoding="utf-8").strip()
     prompt = ("Read AGENTS.md. Work only in this repository. Do not commit, push, "
               "create pull requests, or access external credentials.\n\n" + prompt)
+    if spec.get("web_search") and web_access == "disabled":
+        prompt += ("\n\nWeb access is disabled for this evaluation. Do not attempt online "
+                   "research or cite an external URL. Inspect the installed package or local "
+                   "files to identify the required API, then implement and test the change.")
     if spec.get("language") == "gdscript":
         prompt += f"\n\nGodot 4 executable for local headless tests: {godot or 'godot'}"
     (attempt_dir / "prompt.txt").write_text(prompt, encoding="utf-8")
     started_at = now()
     started = time.monotonic()
     web_override = ("-c", f'web_search="{web_access}"') if spec.get("web_search") else ()
-    command = (*build_codex_command(mode, model), "exec", *web_override,
-               "--approve-for-me", "--json", "--color", "never", prompt)
+    reasoning_override = ("-c", f'model_reasoning_effort="{reasoning_effort}"')
+    command = (*build_codex_command(mode, model), "--sandbox", "workspace-write",
+               "--ask-for-approval", "never", "exec", *web_override,
+               *reasoning_override, "--json", "--color", "never", prompt)
     exit_code, stdout, stderr, timed_out = run_process(command, workspace, timeout,
                                                         sanitized_environment())
     duration = time.monotonic() - started
@@ -218,6 +225,7 @@ def run_case(name: str, root: Path, mode: str, model: str, timeout: int,
             (name, suite, spec["revision"], spec["rubric_version"], spec["route"],
              model, mode, json.dumps({"timeout_seconds": timeout,
              "inference_settings": "unknown", "web_access": web_access,
+             "reasoning_effort": reasoning_effort,
              "godot_version": godot_version if spec.get("language") == "gdscript" else None}),
              PROMPT_VERSION, started_at, now(),
              status, exit_code, duration, events.usage.input_tokens if events.usage else None,
@@ -275,6 +283,7 @@ def main(argv: list[str] | None = None) -> int:
     run.add_argument("--repeat", type=int, default=1)
     run.add_argument("--timeout", type=int, default=600)
     run.add_argument("--web-access", choices=["live", "disabled"], default="live")
+    run.add_argument("--reasoning-effort", choices=["low", "medium", "high"], default="low")
     run.add_argument("--godot", help="Godot 4 executable; overrides GODOT_PATH/config.ini")
     sub.add_parser("report")
     args = parser.parse_args(argv)
@@ -302,7 +311,8 @@ def main(argv: list[str] | None = None) -> int:
     for _ in range(args.repeat):
         for name in ([args.case] if args.case else names):
             failures += run_case(name, root, args.mode, model, args.timeout,
-                                 args.web_access, args.suite, godot, godot_version)
+                                 args.web_access, args.suite, godot, godot_version,
+                                 args.reasoning_effort)
     return 1 if failures else 0
 
 
