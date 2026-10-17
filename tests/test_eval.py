@@ -137,6 +137,37 @@ class EvalTests(unittest.TestCase):
                                      "FROM eval_attempts").fetchone()
                 self.assertEqual(row, (expected, "observed", 1))
 
+    def test_offline_web_case_uses_local_fallback_and_low_reasoning(self) -> None:
+        original = evaluation.run_process
+        commands = []
+        prompts = []
+
+        def fake_process(command, cwd, timeout, environment):
+            if command[0] == "codex":
+                commands.append(command)
+                prompts.append(command[-1])
+                (cwd / "issue_lookup.py").write_text(
+                    "from ghapi.core import GhApi\n\n"
+                    "async def fetch_issue(owner, repo, issue_number):\n"
+                    "    issue = await GhApi().issues.get(owner=owner, repo=repo, "
+                    "issue_number=issue_number)\n"
+                    "    return {'title': issue.title, 'body': issue.body}\n",
+                    encoding="utf-8",
+                )
+                return 0, "", "", False
+            return original(command, cwd, timeout, environment)
+
+        with tempfile.TemporaryDirectory() as temp, patch.object(
+            evaluation, "run_process", side_effect=fake_process
+        ):
+            outcome = evaluation.run_case("ghapi_web_get", Path(temp), "codex", "ignored", 5,
+                                          web_access="disabled")
+
+        self.assertEqual(outcome, 0)
+        self.assertIn('web_search="disabled"', commands[0])
+        self.assertIn('model_reasoning_effort="low"', commands[0])
+        self.assertIn("Do not attempt online research", prompts[0])
+
 
 if __name__ == "__main__":
     unittest.main()

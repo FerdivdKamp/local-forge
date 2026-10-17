@@ -55,7 +55,7 @@ def build_codex_command(mode: str, model: str = DEFAULT_OSS_MODEL) -> tuple[str,
     if mode == "lm-studio":
         if not model:
             raise ValueError("CODEX_MODEL is required when CODEX_MODE is lm-studio")
-        return ("codex", "--oss", "-m", model)
+        return ("codex", "--oss", "--local-provider", "lmstudio", "-m", model)
     raise ValueError("CODEX_MODE must be 'codex' or 'lm-studio'")
 
 
@@ -105,7 +105,8 @@ def run_codex(
     prompt: str,
 ) -> CodexRunResult:
     """Run Codex non-interactively in an issue worktree and capture its result."""
-    command = (*build_codex_command(mode, model), "exec", "--approve-for-me", "--json", "--color", "never", prompt)
+    command = (*build_codex_command(mode, model), "--sandbox", "workspace-write",
+               "--ask-for-approval", "never", "exec", "--json", "--color", "never", prompt)
     started = time.monotonic()
     try:
         completed = subprocess.run(

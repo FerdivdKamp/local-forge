@@ -1,5 +1,9 @@
 # Local evaluation suites
 
+This is the canonical operational guide for evaluation commands and artifact
+locations. See [`../eval_local_model.md`](../eval_local_model.md) for the
+evaluation policy, recorded metrics, known gaps, and roadmap.
+
 Run from the LocalForge repository root after `poetry install`. Set
 `WORKSPACE_ROOT` to a local directory for evaluation data, or configure
 `workspace_root` in `config.ini`. The fallback is `../workspaces`.

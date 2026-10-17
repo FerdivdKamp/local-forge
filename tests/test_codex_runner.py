@@ -22,7 +22,7 @@ class CodexCommandTests(unittest.TestCase):
     def test_lm_studio_mode_uses_oss_with_the_configured_model(self) -> None:
         self.assertEqual(
             build_codex_command("lm-studio", "local/model"),
-            ("codex", "--oss", "-m", "local/model"),
+            ("codex", "--oss", "--local-provider", "lmstudio", "-m", "local/model"),
         )
 
     def test_unknown_mode_is_rejected(self) -> None:
@@ -75,7 +75,8 @@ class CodexRunnerTests(unittest.TestCase):
         self.assertEqual(result.stdout, "implemented")
         self.assertEqual(result.duration_seconds, 2.5)
         run.assert_called_once_with(
-            ("codex", "exec", "--approve-for-me", "--json", "--color", "never", "Fix the bug"),
+            ("codex", "--sandbox", "workspace-write", "--ask-for-approval", "never",
+             "exec", "--json", "--color", "never", "Fix the bug"),
             cwd=Path("worktree"),
             env={"Path": "safe"},
             text=True,
