@@ -3,6 +3,9 @@
 This is the canonical operational guide for evaluation commands and artifact
 locations. See [`../eval_local_model.md`](../eval_local_model.md) for the
 evaluation policy, recorded metrics, known gaps, and roadmap.
+The separate [SWE-bench Lite pilot](../benchmarks/swe_bench_lite/README.md)
+runs five real-repository Python tasks and grades their patches with the official
+harness; it has its own setup and is not part of these fixture suites.
 
 Run from the LocalForge repository root after `poetry install`. Set
 `WORKSPACE_ROOT` to a local directory for evaluation data, or configure

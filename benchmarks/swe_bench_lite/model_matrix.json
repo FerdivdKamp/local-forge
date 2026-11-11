@@ -1,0 +1,115 @@
+{
+  "schema_version": 2,
+  "status": "draft_not_runner_input",
+  "snapshot_date": "2026-10-17",
+  "manifest": "benchmarks/swe_bench_lite/five.json",
+  "gpu": {
+    "name": "NVIDIA GeForce RTX 5070 Ti",
+    "total_vram_gib": 15.92,
+    "desktop_reserve_gib": 2.0,
+    "extra_kv_runtime_reserve_gib": 1.5,
+    "maximum_model_estimate_gib": 12.42,
+    "minimum_clearance_gib": 0.5
+  },
+  "common": {
+    "gpu_offload": "max",
+    "parallel": 1,
+    "timeout_seconds_per_case": 600,
+    "codex_reasoning_effort": "low",
+    "flash_attention": "unknown",
+    "kv_cache_location": "unknown",
+    "kv_cache_quantization": "unknown"
+  },
+  "context_lengths": [8192, 16384, 32768, 65536, 131072],
+  "models": [
+    {
+      "id_prefix": "qwen25-coder-1p5b-q8",
+      "model_key": "qwen2.5-coder-1.5b-instruct",
+      "weight_quantization": "Q8_0",
+      "max_context_length": 32768,
+      "estimated_gpu_gib_by_context": {"8192": 1.78, "16384": 1.97, "32768": 2.35, "65536": null, "131072": null},
+      "candidate_context_lengths": [8192, 16384, 32768]
+    },
+    {
+      "id_prefix": "deepseek-r1-qwen3-8b-q4",
+      "model_key": "deepseek/deepseek-r1-0528-qwen3-8b",
+      "weight_quantization": "Q4_K_M",
+      "max_context_length": 131072,
+      "estimated_gpu_gib_by_context": {"8192": 5.60, "16384": 6.36, "32768": 7.89, "65536": 10.94, "131072": 17.04},
+      "candidate_context_lengths": [8192, 16384, 32768, 65536]
+    },
+    {
+      "id_prefix": "bonsai-27b-q1",
+      "model_key": "prism-ml/bonsai-27b",
+      "weight_quantization": "Q1_0",
+      "max_context_length": 262144,
+      "estimated_gpu_gib_by_context": {"8192": 5.27, "16384": 5.66, "32768": 6.44, "65536": 7.99, "131072": 11.11},
+      "candidate_context_lengths": [8192, 16384, 32768, 65536, 131072]
+    },
+    {
+      "id_prefix": "gemma4-12b-q4",
+      "model_key": "google/gemma-4-12b",
+      "weight_quantization": "Q4_K_M",
+      "max_context_length": 262144,
+      "estimated_gpu_gib_by_context": {"8192": 8.50, "16384": 9.74, "32768": 12.23, "65536": 17.20, "131072": 27.15},
+      "candidate_context_lengths": [8192, 16384]
+    },
+    {
+      "id_prefix": "qwen38-27b-iq2xxs",
+      "model_key": "qwen3.8-27b@iq2_xxs",
+      "weight_quantization": "IQ2_XXS",
+      "max_context_length": 262144,
+      "estimated_gpu_gib_by_context": {"8192": 8.98, "16384": 9.53, "32768": 10.62, "65536": 12.79, "131072": 17.14},
+      "candidate_context_lengths": [8192, 16384, 32768]
+    },
+    {
+      "id_prefix": "qwen36-vibeforged-q4",
+      "model_key": "qwen3.6-14b-a3b-vibeforged-v2",
+      "weight_quantization": "Q4_K_M",
+      "max_context_length": 262144,
+      "estimated_gpu_gib_by_context": {"8192": 9.25, "16384": 9.52, "32768": 10.05, "65536": 11.11, "131072": 13.23},
+      "candidate_context_lengths": [8192, 16384, 32768, 65536]
+    },
+    {
+      "id_prefix": "qwen38-gsq-iq2s",
+      "model_key": "qwen3.8-27b-gsq-rco",
+      "weight_quantization": "IQ2_S",
+      "max_context_length": 262144,
+      "estimated_gpu_gib_by_context": {"8192": 11.13, "16384": 11.76, "32768": 13.03, "65536": 15.56, "131072": 20.62},
+      "candidate_context_lengths": [8192, 16384]
+    },
+    {
+      "id_prefix": "qwen3-coder-q2",
+      "model_key": "unsloth/qwen3-coder-30b-a3b-instruct",
+      "weight_quantization": "Q2_K_XL",
+      "max_context_length": 262144,
+      "estimated_gpu_gib_by_context": {"8192": 11.73, "16384": 12.14, "32768": 12.97, "65536": 14.61, "131072": 17.90},
+      "candidate_context_lengths": [8192]
+    },
+    {
+      "id_prefix": "qwen38-27b-q2",
+      "model_key": "qwen3.8-27b@q2_k_xl",
+      "weight_quantization": "Q2_K_XL",
+      "max_context_length": 262144,
+      "estimated_gpu_gib_by_context": {"8192": 11.74, "16384": 12.39, "32768": 13.71, "65536": 16.34, "131072": 21.61},
+      "candidate_context_lengths": [8192]
+    },
+    {
+      "id_prefix": "qwen3-coder-q3",
+      "model_key": "qwen/qwen3-coder-30b",
+      "weight_quantization": "Q3_K_L",
+      "max_context_length": 262144,
+      "estimated_gpu_gib_by_context": {"8192": 14.41, "16384": 14.82, "32768": 15.65, "65536": 17.29, "131072": 20.58},
+      "candidate_context_lengths": []
+    },
+    {
+      "id_prefix": "deepseek-r1-qwen3-8b-q8",
+      "model_key": null,
+      "weight_quantization": "Q8_0",
+      "max_context_length": 131072,
+      "selection_note": "Downloaded but the CLI rejected its variant key; do not resolve to the Q4_K_M group key by accident.",
+      "estimated_gpu_gib_by_context": {"8192": null, "16384": null, "32768": null, "65536": null, "131072": null},
+      "candidate_context_lengths": []
+    }
+  ]
+}
